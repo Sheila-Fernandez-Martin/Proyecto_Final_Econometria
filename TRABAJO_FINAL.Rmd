@@ -1,0 +1,663 @@
+---
+title: "Trabajo Final Econometría"
+author: "Sheila Fernández Martín"
+output:
+  pdf_document: default
+---
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+library(wooldridge)
+library(ISLR2)
+library(ISLR)
+library(psych)
+library(ggcorrplot)
+library(psych)
+library(carData)
+library(leaps)
+library(caret)
+library(glmnet)
+library(car)
+library(leaps)
+data("card")
+attach(card)
+```
+# Ejercicio 1.
+
+El conjunto de datos 'card' proviene del paquete 'wooldridge', que incluye datos para análisis econométricos. El paquete 'wooldridge' se basa en ejemplos del libro 'Introductory Econometrics: A Modern Approach de Jeffrey M. Wooldridge'. Específicamente, 'card' incluye datos utilizados en estudios sobre el impacto de la educación en los ingresos.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+card = na.omit(card)
+dim(card)
+```
+El conjunto de datos cuenta con 3010 observaciones de 34 variables pero dado que hay algunas muestras que no nos ofrece información para todas las variables, consideraremos el conjunto de datos con 1600 observaciones de 34 variables.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+lmfit0 <- lm(lwage ~ ., data = card)
+alias(lmfit0)$Complete
+```
+Observamos la relación entre las variables y eliminamos las variables redundantes 'educ', 'age', 'reg661', 'reg662', 'reg663', 'reg664', 'reg665', 'reg666', 'reg667', 'reg668'. También eliminamos la variable 'wage' para evitar problemas de multicolinealidad y permitir una estimación más precisa de los coeficientes. El modelo resultante es:
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+Card1=card[,-c(4,5,12,13,14,15,16,17,18,19,26)]
+lmfit2 <- lm(lwage ~ ., data = Card1)
+alias(lmfit2)$Model
+```
+Utilizaremos dicho modelo para asegurar que sea matemáticamente sólido, estadísticamente interpretable y computacionalmente eficiente.
+
+
+Eliminamos la variable que esté más correlacionada con las demás variables explicativas si el FIV es superior a 5 y volvemos a repetir el análisis hasta que no queden más variables explicativas con un FIV superior a 5.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+c(max(vif(lmfit2)),names(vif(lmfit2))[which.max(vif(lmfit2))])
+lmfit3 <- lm(lwage ~ ., data = card[,-c(4,5,12,13,14,15,16,17,18,19,26,32)])
+c(max(vif(lmfit3)),names(vif(lmfit3))[which.max(vif(lmfit3))])
+lmfit4 <- lm(lwage ~ ., data = card[,-c(4,5,12,13,14,15,16,17,18,19,26,32,21)])
+c(max(vif(lmfit4)),names(vif(lmfit4))[which.max(vif(lmfit4))])
+```
+De este modo, en primer lugar, eliminamos la variable 'exper', a continuación volvemos a analizar el FIV y finalmente, eliminamos la variable 'south66'.
+
+Observamos que ya no hay ninguna variable con un VIF superior a 5 por lo que hacemos el diagrama de calor (Heat map) eliminando del modelo original las variables: 'educ', 'age', 'reg661', 'reg662', 'reg663', 'reg664', 'reg665', 'reg666', 'reg667', 'reg668', 'wage', 'exper' y 'south66'. 
+
+Por tanto, las variables que usaremos en adelante son: 'id', 'nearc2', 'nearc4', 'fatheduc', 'motheduc', 'weight', 'momdad14', 'sinmom14', 'step14', reg669', 'black', 'smsa', 'south', 'smsa66', 'enroll', Kww', 'IQ', 'married', 'libcrd14' y 'expersq'. 
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, out.width="80%", out.height="80%",fig.align='center'}
+Card = as.data.frame(card[,-c(4,5,12,13,14,15,16,17,18,19,26,32,21)])
+cor.plot(cor(Card, use = "pairwise.complete.obs"), stars = T)
+```
+
+# Ejercicio 2.
+
+Ajustamos un modelo de mínimos cuadrados ordinarios con las variables seleccionadas en el apartado anterior:
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+lmfit = lm(lwage ~ ., data = Card)
+summary(lmfit)
+```
+Observamos que el intercepto es 5.494, que hace referencia al valor del logaritmo del salario esperado si todas las variables explicativas son cero. 
+
+Los valores de la columna 'Estimate' determinan el cambio esperado en la variable objetivo (lwage) asociado a un cambio unitario en la variable explicativa correspondiente, manteniendo las demás constantes. Por ejemplo, por cada unidad que aumente 'weight', el salario aumenta un 1.065e-05%. 
+
+Para evaluar si los coeficientes son significativos, analizamos la columna 'Pr(>|t|)'. Observamos así, que las variables 'motheduc', 'smsa', 'enroll', 'KWW', 'IQ', 'married' y 'expersq' son estadísticamente significativas a un nivel de signigicación del 1% y que todas las demás no lo son porque tienen un p-valor superior a 0.01.
+
+Con el valor de 'Multiple R-squared' determinamos que el modelo explica el 20.55% de la variabilidad del logaritmo de los salarios, lo cual es una proporción muy baja indicando que el modelo no es bueno. 
+
+El p-valor global del modelo es 2.2e-16 < 0.01, luego es estadísicamente significativo globalmente a un nivel de significación de $\alpha$=1%.
+
+# Ejercicio 3.
+
+Para realizar el contraste de significatividad conjunta, primero analizamos el modelo:
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+summary(lmfit2)
+```
+
+Comparando este resultado con el anterior, observamos que los coeficientes estimados de las variables son muy similares en magnitud y significancia. Los dos modelos tienen un R cuadrado y Adjusted R cuadrado muy similares luego las diferencias no son estadísticamente relevantes. Finalmente, comentar que ambos tienen un valor de F muy bajo con un p-value cercano a 0, indicando que son estadísticamente significativos en general. Sin embargo, el modelo del ejercicio anterior cuenta con 20 predictores y F-statistic = 20.42 mientras que, este cuenta con 22 predictores y F-statistic = 19.36, lo que sugiere que añadir más variables (como 'south66' y 'exper') puede estar penalizando el modelo en términos de ajuste.
+
+A continuación, miramos cuales son las variables que no son individualmente significativas al 1%.
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+non_significant_vars <- names(coef(lmfit2))[summary(lmfit2)$coefficients[, 4] >= 0.01]
+non_significant_vars
+```
+Realizamos el contraste de significatividad conjunta de dichas variables considerando como hipótesis nula que sus coeficientes son 0.
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+linearHypothesis(lmfit2, non_significant_vars)
+```
+Como el p-valor es 0.0002497 < 0.01, rechazamos la hipótesis nula indicando que las variables no significativas individualmente al 1% tienen un efecto conjunto estadísticamente significativo en el modelo.
+
+# Ejercicio 4.
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+set.seed(382) 
+n <- nrow(Card)
+train <- sample(1:n, size = round(0.85 * n), replace = FALSE)
+test = -train
+train_data <- Card[train, ]
+test_data <- Card[test, ]
+
+lmfit_train <- lm(lwage ~ ., data = train_data)
+
+predictions <- predict(lmfit_train, newdata = test_data)
+
+test_mse <- mean((test_data$lwage - predictions)^2)
+test_mse
+sqrt(test_mse)
+```
+Ajustamos un modelo de mínimos cuadrados ordinarios en el conjunto de entrenamiento y calculamos su error de prueba. Dicho error es una métrica que mide el desempeño de un modelo ajustado al conjunto de entrenamiento al realizar predicciones sobre el conjunto de prueba. En este caso, calculamos el Error Cuadrático Medio (ECM) como la métrica de error de prueba y su valor es: 0.1383376. Luego el promedio de los errores es 0.3719376, que es un valor bastante alto indicando que el modelo no tiene un buen ajuste en los datos de prueba.
+
+\newpage
+# Ejercicio 5. 
+Vamos a hacer la Validación Cruzada 10-Veces utilizando la Mejor Selección de Conjuntos.
+```{r warning=FALSE, message=FALSE, echo=FALSE, out.width="62%", out.height="62%",fig.align='center'}
+nvariables <- as.numeric(dim(Card)[2] -1)
+predict.regsubsets=function(object,newdata,id,...){
+  form=as.formula(object$call[[2]])
+  mat=model.matrix(form,newdata)
+  coefi=coef(object,id=id)
+  xvars=names(coefi)
+  mat[,xvars]%*%coefi
+}
+
+k = 10
+set.seed(382)
+folds=sample(1:k,nrow(train_data),replace=TRUE)
+cv.errors=matrix(NA,k,nvariables, dimnames =list(NULL , paste(1:nvariables)))
+for(j in 1:k){
+  best.fit=regsubsets(lwage~.,data=train_data[folds!=j,],
+                      nvmax=nvariables)
+  for(i in 1:nvariables){
+    pred=predict.regsubsets(best.fit,train_data[folds==j,],id=i)
+    cv.errors[j,i]=mean((train_data$lwage[folds==j]-pred)^2)
+  }
+}
+mse.cv=apply(cv.errors,2,mean)
+plot(mse.cv, pch = 19, type = "b", xlab = "Número de Predictores", ylab = "ECM",main = "Validación Cruzada 10-veces: Mejor Selección de Conjuntos")
+abline(v = which.min(mse.cv), col = "red", lty = 2)
+```
+Vemos que selecciona un modelo de 10 variables. Ahora realizamos mejor selección de subconjuntos en el conjunto de datos con el fin de obtener el modelo de 10 variables y observamos que es el siguiente:
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+reg.best=regsubsets (lwage~.,data=train_data , nvmax=nvariables)
+coef(reg.best ,which.min(mse.cv))
+```
+
+```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
+regfit.full=regsubsets(lwage~.,data= Card[train,],nvmax=nvariables)
+
+lm.pred = predict.regsubsets(regfit.full, newdata = test_data, id=which.min(mse.cv))
+error.mss.mse10 <- mean((test_data[, "lwage"] - lm.pred)^2)
+error.mss.mse10
+sqrt(error.mss.mse10)
+
+# Regla del "codo" de una DT del error de VC:
+dt.cv = sd(mse.cv)
+codo.model.mse10 = which.max(mse.cv <= min(mse.cv)+ dt.cv)
+codo.model.mse10
+lm.pred = predict.regsubsets(regfit.full, newdata = test_data, id=which.max(mse.cv - dt.cv <= min(mse.cv)))
+error.mss.codo.mse10 <- mean((test_data[, "lwage"] - lm.pred)^2)
+error.mss.codo.mse10 
+```
+Finalmente, el ECM es 0.1385224, por lo que la raíz es: 0.372186, que es un valor bastante alto indicando que el modelo no tiene un buen ajuste en los datos de prueba.
+
+El modelo seleccionado por la regla del codo incluye 8 variables con un ECM de prueba de 0.1422681. 
+
+\newpage
+
+# Ejercicio 6. 
+Vamos a hacer la Validación Cruzada 10-Veces utilizando la Selección por Pasos Hacia Adelante.
+```{r warning=FALSE, message=FALSE, echo=FALSE, out.width="62%", out.height="62%",fig.align='center'}
+nvariables <- as.numeric(dim(Card)[2] -1)
+predict.regsubsets=function(object,newdata,id,...){
+  form=as.formula(object$call[[2]])
+  mat=model.matrix(form,newdata)
+  coefi=coef(object,id=id)
+  xvars=names(coefi)
+  mat[,xvars]%*%coefi
+}
+
+k = 10
+set.seed(382)
+folds=sample(1:k,nrow(train_data),replace=TRUE)
+cv.errors=matrix(NA,k,nvariables, dimnames =list(NULL , paste(1:nvariables)))
+for(j in 1:k){
+  best.fit=regsubsets(lwage~.,data=train_data[folds!=j,],
+                      nvmax=nvariables, method = "forward")
+  for(i in 1:nvariables){
+    pred=predict.regsubsets(best.fit,train_data[folds==j,],id=i)
+    cv.errors[j,i]=mean((train_data$lwage[folds==j]-pred)^2)
+  }
+}
+mse.cv=apply(cv.errors,2,mean)
+plot(mse.cv, pch = 19, type = "b", xlab = "Número de Predictores", ylab = "ECM",main = "Validación Cruzada 10-veces: Selección por Pasos Hacia Adelante")
+abline(v = which.min(mse.cv), col = "red", lty = 2)
+```
+Vemos que de nuevo selecciona un modelo de 10 variables por lo que el modelo de 10 variables es el mismo que en el apartado anterior y el valor de sus errores también. Sin embargo, al aplicar la regla del codo, utiliza 7 variables en vez de 8.
+```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
+reg.best=regsubsets(lwage~.,data=train_data , nvmax=nvariables)
+coef(reg.best ,which.min(mse.cv))
+regfit.full=regsubsets(lwage~.,data= Card[train,],nvmax=nvariables)
+
+lm.pred = predict.regsubsets(regfit.full, newdata = test_data, id=which.min(mse.cv))
+error.mss.ha10 <- mean((test_data[, "lwage"] - lm.pred)^2)
+
+cat("Finalmente, el error cuadrático medio es:", error.mss.ha10, "\n")
+cat("La raíz del error cuadrático medio es:", sqrt(error.mss.ha10), ", que es un valor relativamente pequeño indicando que el modelo tiene un buen ajuste en los datos de prueba.\n")
+
+# Regla del "codo" de una DT del error de VC:
+dt.cv = sd(mse.cv)
+codo.model.ha10 = which.max(mse.cv <= min(mse.cv)+ dt.cv)
+lm.pred = predict.regsubsets(regfit.full, newdata = test_data, id=which.max(mse.cv - dt.cv <= min(mse.cv)))
+error.mss.codo.ha10 <- mean((test_data[, "lwage"] - lm.pred)^2)
+cat("El modelo seleccionado por la regla del codo incluye", codo.model.ha10, "variables con un ECM de prueba de", error.mss.codo.ha10, "\n")
+```
+
+# Ejercicio 7. 
+
+### VC-5: Mejor Selección de Conjuntos
+
+```{r warning=FALSE, message=FALSE, echo=FALSE, out.width="62%", out.height="62%",fig.align='center'}
+nvariables <- as.numeric(dim(Card)[2] -1)
+predict.regsubsets=function(object,newdata,id,...){
+  form=as.formula(object$call[[2]])
+  mat=model.matrix(form,newdata)
+  coefi=coef(object,id=id)
+  xvars=names(coefi)
+  mat[,xvars]%*%coefi
+}
+
+k = 5
+set.seed(382)
+folds=sample(1:k,nrow(train_data),replace=TRUE)
+cv.errors=matrix(NA,k,nvariables, dimnames =list(NULL , paste(1:nvariables)))
+for(j in 1:k){
+  best.fit=regsubsets(lwage~.,data=train_data[folds!=j,],
+                      nvmax=nvariables)
+  for(i in 1:nvariables){
+    pred=predict.regsubsets(best.fit,train_data[folds==j,],id=i)
+    cv.errors[j,i]=mean((train_data$lwage[folds==j]-pred)^2)
+  }
+}
+mse.cv=apply(cv.errors,2,mean)
+plot(mse.cv, pch = 19, type = "b", xlab = "Número de Predictores", ylab = "ECM",main = "Validación Cruzada 5-veces: Mejor Selección de Conjuntos")
+abline(v = which.min(mse.cv), col = "red", lty = 2)
+```
+Vemos que de nuevo selecciona un modelo de 10 variables por lo que el modelo de 10 variables es el mismo que en el apartado anterior y el valor de sus errores también.
+
+```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
+reg.best=regsubsets (lwage~.,data=train_data , nvmax=nvariables)
+coef(reg.best ,which.min(mse.cv))
+```
+
+```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
+
+regfit.full=regsubsets(lwage~.,data= Card[train,],nvmax=nvariables)
+
+lm.pred = predict.regsubsets(regfit.full, newdata = test_data, id=which.min(mse.cv))
+error.mss.mse5 <- mean((test_data[, "lwage"] - lm.pred)^2)
+
+error.mss.mse5
+sqrt(error.mss.mse5)
+
+# Regla del "codo" de una DT del error de VC:
+dt.cv = sd(mse.cv)
+codo.model.mse5 = which.max(mse.cv <= min(mse.cv)+ dt.cv)
+lm.pred = predict.regsubsets(regfit.full, newdata = test_data, id=which.max(mse.cv - dt.cv <= min(mse.cv)))
+error.mss.codo.mse5 <- mean((test_data[, "lwage"] - lm.pred)^2)
+codo.model.mse5
+error.mss.codo.mse5
+```
+
+### VC-5: Selección por Pasos Hacia Adelante
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, out.width="62%", out.height="62%",fig.align='center'}
+nvariables <- as.numeric(dim(Card)[2] -1)
+predict.regsubsets=function(object,newdata,id,...){
+  form=as.formula(object$call[[2]])
+  mat=model.matrix(form,newdata)
+  coefi=coef(object,id=id)
+  xvars=names(coefi)
+  mat[,xvars]%*%coefi
+}
+
+k = 5
+set.seed(382)
+folds=sample(1:k,nrow(train_data),replace=TRUE)
+cv.errors=matrix(NA,k,nvariables, dimnames =list(NULL , paste(1:nvariables)))
+for(j in 1:k){
+  best.fit=regsubsets(lwage~.,data=train_data[folds!=j,],
+                      nvmax=nvariables, method = "forward")
+  for(i in 1:nvariables){
+    pred=predict.regsubsets(best.fit,train_data[folds==j,],id=i)
+    cv.errors[j,i]=mean((train_data$lwage[folds==j]-pred)^2)
+  }
+}
+mse.cv=apply(cv.errors,2,mean)
+plot(mse.cv, pch = 19, type = "b", xlab = "Número de Predictores", ylab = "ECM",main = "Validación Cruzada 5-veces: Selección por Pasos Hacia Adelante")
+abline(v = which.min(mse.cv), col = "red", lty = 2)
+```
+También selecciona un modelo de 10 variables por lo que el modelo de 10 variables es el mismo que en los apartados anteriores y el valor de sus errores también.
+```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
+reg.best=regsubsets (lwage~.,data=train_data , nvmax=nvariables)
+coefs.ha5=coef(reg.best ,which.min(mse.cv))
+coefs.ha5
+``` 
+
+```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
+regfit.full=regsubsets(lwage~.,data= Card[train,],nvmax=nvariables)
+
+lm.pred = predict.regsubsets(regfit.full, newdata = test_data, id=which.min(mse.cv))
+error.mss.ha5 <- mean((test_data[, "lwage"] - lm.pred)^2)
+error.mss.ha5
+sqrt(error.mss.ha5)
+
+# Regla del "codo" de una DT del error de VC:
+dt.cv = sd(mse.cv)
+codo.model.ha5 = which.max(mse.cv <= min(mse.cv)+ dt.cv)
+lm.pred = predict.regsubsets(regfit.full, newdata = test_data, id=which.max(mse.cv - dt.cv <= min(mse.cv)))
+error.mss.codo.ha5 <- mean((test_data[, "lwage"] - lm.pred)^2)
+codo.model.ha5
+error.mss.codo.ha5
+```
+
+# Ejercicio 8. 
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.align='center', results='asis'}
+cat("
+\\begin{table}[ht]
+\\centering
+\\begin{tabular}{|l|c|c|}
+\\hline
+\\textbf{Modelo} & \\textbf{ECM} & \\textbf{Regla del Codo} \\\\ \\hline
+VC 10-veces: Mejor Selección de Conjuntos & 0.1385224 & 0.142286 \\\\ \\hline
+VC 10-veces: Selección Hacia Adelante & 0.1385224 & 0.142286 \\\\ \\hline
+VC 5-veces: Mejor Selección de Conjuntos & 0.1385224 & 0.142286 \\\\ \\hline
+VC 5-veces: Selección Hacia Adelante & 0.1385224 & 0.142286 \\\\ \\hline
+\\end{tabular}
+\\caption{Tabla de los errores de prueba de cada modelo}
+\\label{tab:model_comparison}
+\\end{table}
+")
+```
+
+No hay diferencias en los errores de prueba entre los distintos enfoques. Esto sugiere que, en términos prácticos, no hay una diferencia sustancial en el rendimiento de los modelos para los diferentes enfoques de selección de variables y números de pliegues en la validación cruzada.
+
+# Ejercicio 9. 
+Escogeremos el modelo de la Validación Cruzada 5-veces utilizando Selección Hacia Adelante para reducir el tiempo de cómputo.
+
+Ajustamos el modelo y obtenemos el p-valor de los coeficientes.
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+final.model.ha5  <- lm(lwage ~ ., data = Card[,c(names(coefs.ha5)[-1], "lwage")])
+summary(final.model.ha5)$coefficients[,4]
+```
+Comparamos la columna 'Pr(>|t|)' con el nivel de significación de $\alpha$ = 5%. Observamos así, que todas las variables son estadísticamente significativas a este nivel de significación pues tienen un p-valor inferior a 0.05.
+
+# Ejercicio 10. 
+
+### Regresión Ridge: VC-10
+```{r echo=FALSE, message=FALSE, warning=FALSE, out.width="62%", out.height="62%",fig.align='center'}
+set.seed(382)
+x=model.matrix(lwage~.,Card)[,-1]
+y=Card$lwage
+y.test=y[test]
+grid=10^seq(10,-2, length =100)
+cv.ridge=cv.glmnet(x[train ,],y[train],alpha=0,lambda=grid, nfolds = 10)
+plot(cv.ridge)
+```
+
+```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
+mejorlambda=cv.ridge$lambda.min
+
+
+ridge.mod=glmnet(x[train ,],y[train],alpha=0,lambda=grid)
+ridge.pred=predict(ridge.mod,s=mejorlambda ,newx=x[test ,])
+error.ridge = mean((ridge.pred - y[test])^2)
+
+
+# Regla del "codo" de una DT del error de VC:
+lambda.codo = cv.ridge$lambda.1se
+
+
+ridge.pred.2 = predict(ridge.mod, s = lambda.codo, newx = x[test, ])
+error.ridge.2 <- mean((ridge.pred.2-test_data[, "lwage"] )^2)
+mejorlambda
+error.ridge
+lambda.codo
+error.ridge.2
+```
+Mejor lambda (mínimo error): 0.05336699. 
+
+Error de prueba (MSE) con mejor lambda: 0.1387658. 
+
+Lambda con la regla del codo: 0.4977024. 
+
+Error de prueba (MSE) con lambda con la regla del codo: 0.1469486. 
+
+# Ejercicio 11.
+
+### Modelo LASSO: VC-10
+```{r echo=FALSE, message=FALSE, warning=FALSE, out.width="62%", out.height="62%",fig.align='center'}
+set.seed(382)
+#par(mfrow = c(1, 2), mar = c(7, 1, 7, 1))
+cv.lasso=cv.glmnet(x[train ,],y[train],alpha=1, lambda = grid, nfolds = 10)
+plot(cv.lasso)
+bestlam=cv.lasso$lambda.min
+
+
+lasso.mod=glmnet(x[train ,],y[train],alpha=1,lambda=grid)
+plot(lasso.mod)
+lasso.pred=predict(lasso.mod,s=bestlam,newx=x[test ,])
+error.lasso <- mean((lasso.pred-test_data[, "lwage"] )^2)
+```
+
+```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
+bestlam
+error.lasso
+
+# Regla del "codo" de una DT del error de VC:
+lambda.codo.l <- cv.lasso$lambda.1se
+lambda.codo.l
+
+lasso.pred.2=predict(lasso.mod,s=lambda.codo.l,newx=x[test ,])
+error.lasso.2 <- mean((lasso.pred.2-test_data[, "lwage"] )^2)
+error.lasso.2
+
+coeficientes = coef(lasso.mod, s = bestlam)
+num.coef.no.cero = sum(coeficientes != 0) - 1  
+num.coef.no.cero
+
+coeficientes.codo = coef(lasso.mod, s = lambda.codo.l)
+num.coef.no.cero.codo = sum(coeficientes.codo != 0) - 1
+num.coef.no.cero.codo
+
+```
+Mejor lambda (mínimo error): 0.01. 
+
+Error de prueba (MSE) con mejor lambda: 0.1389268. 
+
+Lambda con la regla del codo: 0.0231013. 
+
+Error de prueba (MSE) con lambda del codo: 0.1433635. 
+
+Número de coeficientes diferentes de cero: 14. 
+
+Número de coeficientes diferentes de cero con lambda por la regla del codo: 12. 
+
+# Ejercicio 12. 
+
+### Regresión Ridge: VC-5
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, out.width="62%", out.height="62%",fig.align='center'}
+set.seed(382)
+x=model.matrix(lwage~.,Card)[,-1]
+y=Card$lwage
+y.test=y[test]
+grid=10^seq(10,-2, length =100)
+cv.ridge=cv.glmnet(x[train ,],y[train],alpha=0,lambda=grid, nfolds = 5)
+plot(cv.ridge)
+``` 
+
+```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
+mejorlambda=cv.ridge$lambda.min
+mejorlambda
+
+ridge.mod=glmnet(x[train ,],y[train],alpha=0,lambda=grid)
+ridge.pred=predict(ridge.mod,s=mejorlambda ,newx=x[test ,])
+error.ridge.VC5 = mean((ridge.pred - y[test])^2)
+error.ridge.VC5
+
+# Regla del "codo" de una DT del error de VC:
+lambda.codo = cv.ridge$lambda.1se
+lambda.codo
+
+ridge.pred.2 = predict(ridge.mod, s = lambda.codo, newx = x[test, ])
+error.ridge.2.VC5 <- mean((ridge.pred.2-test_data[, "lwage"] )^2)
+error.ridge.2.VC5
+```
+Mejor lambda (mínimo error), VC-5: 0.07054802.
+
+Error de prueba (MSE) con mejor lambda, VC-5: 0.1390268.
+
+Lambda con la regla del codo, VC-5: 0.4977024.
+
+Error de prueba (MSE) con lambda con la regla del codo, VC-5: 0.1469486.
+
+### Modelo LASSO: VC-5
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, out.width="62%", out.height="62%",fig.align='center'}
+#par(mfrow = c(1, 2), mar = c(7, 1, 7, 1)) 
+cv.lasso=cv.glmnet(x[train ,],y[train],alpha=1, lambda = grid,, nfolds=5)
+plot(cv.lasso)
+bestlam=cv.lasso$lambda.min
+
+lasso.mod=glmnet(x[train ,],y[train],alpha=1,lambda=grid)
+plot(lasso.mod)
+```
+
+```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
+lasso.pred=predict(lasso.mod,s=bestlam,newx=x[test ,])
+error.lasso <- mean((lasso.pred-test_data[, "lwage"] )^2)
+bestlam
+error.lasso
+
+
+# Regla del "codo" de una DT del error de VC:
+lambda.codo.l <- cv.lasso$lambda.1se
+lambda.codo.l
+
+lasso.pred.2=predict(lasso.mod,s=lambda.codo.l,newx=x[test ,])
+error.lasso.2 <- mean((lasso.pred.2-test_data[, "lwage"] )^2)
+error.lasso.2
+
+coeficientes = coef(lasso.mod, s = bestlam)
+num.coef.no.cero = sum(coeficientes != 0) - 1  
+num.coef.no.cero
+
+coeficientes.codo = coef(lasso.mod, s = lambda.codo.l)
+num.coef.no.cero.codo = sum(coeficientes.codo != 0) - 1
+num.coef.no.cero.codo
+```
+Mejor lambda (mínimo error): 0.01. 
+
+Error de prueba (MSE) con mejor lambda: 0.1389268. 
+
+Lambda con la regla del codo: 0.03053856. 
+
+Error de prueba (MSE) con lambda del codo: 0.1474282. 
+
+Número de coeficientes diferentes de cero: 14. 
+
+Número de coeficientes diferentes de cero con lambda por la regla del codo: 11. 
+
+# Ejercicio 13. 
+
+### Componentes principales: VC-10
+
+```{r echo=FALSE, message=FALSE, warning=FALSE,out.width="62%", out.height="62%", fig.align='center'}
+library(pls)
+set.seed(382)
+#par(mfrow = c(1, 2), mar = c(7, 1, 7, 1))
+# Ajustar el modelo PCR con validación cruzada 10 veces
+pcr.fit.10 = pcr(lwage ~ ., data = Card, subset = train, scale = TRUE, validation = "CV")
+pcr.cv.10 <- crossval(pcr.fit.10, segments = 10)
+plot(RMSEP(pcr.cv.10), legendpos = "topright", xlab = "Number of components VC-10.")
+ncomp.10 = selectNcomp(pcr.fit.10, method = "onesigma", plot = TRUE)
+```
+
+```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
+pcr.pred.10 = predict(pcr.fit.10, newdata = Card[test,], ncomp = ncomp.10)
+error.pcr.10 = mean((pcr.pred.10 - test_data[,"lwage"])^2)
+ncomp.10
+error.pcr.10
+```
+Número óptimo de componentes principales (VC-10): 5.
+
+Error de prueba (VC-10): 0.1496024.
+
+\newpage
+
+### Componentes principales: VC-5
+
+Obtenemos los mismos resultados que al usar 10 pliegues en vez de 5.
+```{r echo=FALSE, message=FALSE, warning=FALSE,out.width="62%", out.height="62%",fig.align='center'}
+pcr.fit.5 = pcr(lwage ~ ., data = Card, subset = train, scale = TRUE, validation = "CV")
+pcr.cv.5 <- crossval(pcr.fit.5, segments = 5)
+#plot(RMSEP(pcr.cv.5), legendpos = "topright", xlab = "Number of components VC-5.")
+ncomp.5 = selectNcomp(pcr.fit.5, method = "onesigma", plot = TRUE)
+```
+
+```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
+ncomp.5
+pcr.pred.5 = predict(pcr.fit.5, newdata = Card[test,], ncomp = ncomp.5)
+error.pcr.5 = mean((pcr.pred.5 - y[test])^2)
+error.pcr.5
+```
+Número óptimo de componentes principales (VC-5): 5.
+
+Error de prueba (VC-5): 0.1496024.
+
+# Ejercicio 14. 
+
+### PLS: VC-10
+```{r echo=FALSE, message=FALSE, warning=FALSE,out.width="62%", out.height="62%",fig.align='center'}
+set.seed(382)
+#par(mfrow = c(1, 2), mar = c(7, 1, 7, 1)) 
+# Ajustar modelo PLS con validación cruzada 10 veces
+pls.fit.10 = plsr(lwage ~ ., data = Card, subset = train, scale = TRUE, validation = "CV", segments = 10)
+validationplot(pls.fit.10, val.type = "MSEP", xlab = "Número de Componentes")
+ncomp.10 = selectNcomp(pls.fit.10, method = "onesigma", plot = TRUE)
+```
+
+```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
+ncomp.10
+pls.pred.10 = predict(pls.fit.10, newdata = Card[test,], ncomp = ncomp.10)
+error.pls.10 = mean((pls.pred.10 - y[test])^2)
+error.pls.10
+```
+Número óptimo de componentes principales (VC-10): 1.
+
+Error de prueba (VC-10): 0.1477611.
+
+### PLS: VC-5
+
+De nuevo obtenemos los mismos resultados que al usar 10 pliegues en vez de 5.
+```{r echo=FALSE, message=FALSE, warning=FALSE,out.width="62%", out.height="62%",fig.align='center'}
+#par(mfrow = c(1, 2), mar = c(7, 1, 7, 1)) 
+# Ajustar modelo PLS con validación cruzada 5 veces
+pls.fit.5 = plsr(lwage ~ ., data = Card, subset = train, scale = TRUE, validation = "CV", segments = 5)
+ncomp.5 = selectNcomp(pls.fit.5, method = "onesigma", plot = TRUE)
+```
+
+```{r warning=FALSE, message=FALSE, echo=FALSE, results='hide'}
+ncomp.5
+pls.pred.5 = predict(pls.fit.5, newdata = Card[test,], ncomp = ncomp.5)
+error.pls.5 = mean((pls.pred.5 - y[test])^2)
+error.pls.5
+```
+Número óptimo de componentes principales (VC-5): 1.
+
+Error de prueba (VC-5): 0.1477611.
+
+\newpage
+
+# Ejercicio 15. 
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='asis',fig.align='center',}
+cat("
+\\begin{table}[ht]
+\\centering
+\\begin{tabular}{|l|c|}
+\\hline
+\\textbf{Modelo} & \\textbf{ECM} \\\\ \\hline
+Ridge (VC-10) & 0.1387658 \\\\ \\hline
+Ridge (Regla del codo VC-10) & 0.4977024 \\\\ \\hline
+LASSO (VC-10) & 0.1389268 \\\\ \\hline
+LASSO (Regla del codo VC-10) & 0.1433635 \\\\ \\hline
+Ridge (VC-5) & 0.1390268 \\\\ \\hline
+Ridge (Regla del codo VC-5) & 0.1469486 \\\\ \\hline
+LASSO (VC-5) & 0.1389268 \\\\ \\hline
+LASSO (Regla del codo VC-5) & 0.1474282 \\\\ \\hline
+PCR (VC-10) & 0.1496024 \\\\ \\hline
+PCR (VC-5) & 0.1496024 \\\\ \\hline
+PLS (VC-10) & 0.1477611 \\\\ \\hline
+PLS (VC-5) & 0.1477611 \\\\ \\hline
+\\end{tabular}
+\\caption{Tabla de los errores de prueba de cada modelo}
+\\label{tab:test_errors}
+\\end{table}
+")
+```
+En general, los errores de prueba resultantes entre los enfoques son bastante similares, siendo el modelo el de Ridge mediante validación cruzada con 10 pliegues. Por otro lado, el modelo seleccionado en el apartado 9 cuenta con un error igual a 0.1385224 mientras que el error del modelo PCR tiene un error igual a 0.1387658 por lo que, se puede concluir que cuentan con una mayor precisión los modelos de Validación Cruzada 5-veces o 10-veces utilizando tanto Selección Hacia Adelante como Mejor Selección de Conjunto. 
+
